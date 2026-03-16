@@ -4,6 +4,9 @@ use crate::mesh::Node;
 use crate::solver_utils;
 use crate::solver_utils::Scheme;
 
+
+//  Main function to solve the Laplace equation using the finite difference method. 
+// This function calls all the other relevant functions in this scope and returns the final phi matrix.
 pub fn solve(mesh: &Array2<Node>,
             config: &config::Config) 
             -> Array2<f64> {
@@ -20,18 +23,22 @@ pub fn solve(mesh: &Array2<Node>,
     println!("\nStarting solver for {} iterations...\n", n_max);
     for iter in 1..=n_max {
 
+        // Input boundary condition on phi array
         input_boundary_conditions(mesh, &mut phi, config);
 
-        let L_phi_n = calc_residual_operator(mesh, &phi, config);
+        // Calculate the residual operator L_phi_n for the current phi field.
+        let L_phi_n = calc_residual_operator(mesh, &phi);
 
-        let residual_error = solver_utils::compute_residual_error(&L_phi_n);
+        // Compute the maximum and average residual error for the current iteration using the L_phi_n operator.
+        let (max_residual, avg_residual) = solver_utils::compute_residual_error(&L_phi_n);
 
-        residual_writer.write(iter, residual_error);
-
+        // Update the solution for n+1 using n and the residual operator L_phi_n.
         phi = update_solution(mesh, &phi, &L_phi_n, config);
-
+        
+        // Register the residual error for this iteration and print progress every 100 iterations
+        residual_writer.write(iter, max_residual, avg_residual);
         if iter % 100 == 0 || iter == 1 {
-            println!("Iteration: {}/{}, Residual Error: {:.6e}", iter, n_max, residual_error);
+            println!("Iteration: {}/{}, Max Residual Error: {:.6e}, Average Residual Error: {:.6e}", iter, n_max, max_residual, avg_residual);
         }
     }
    phi 
@@ -90,7 +97,7 @@ fn input_boundary_conditions(mesh: &Array2<Node>,
 
 // This function calculates the phi field at each interior node of the mesh using the finite difference approximation of the Laplacian operator. 
 // It iterates over all interior nodes of the mesh and updates the phi value at each node based on
-fn calc_residual_operator(mesh: &Array2<Node>, phi_n: &Array2<f64>, config: &config::Config) -> Array2<f64> {
+fn calc_residual_operator(mesh: &Array2<Node>, phi_n: &Array2<f64>) -> Array2<f64> {
 
     let (imax, jmax) = mesh.dim();
     let mut L_phi_n = Array2::<f64>::zeros((imax, jmax));
@@ -150,7 +157,7 @@ fn get_N_scheme(mesh: &Array2<Node>, L_phi_n: &Array2<f64>, i: usize, j: usize, 
             -2.0 / ((mesh[[i, j+1]].y - mesh[[i, j-1]].y)/2.0).powi(2)
         }
 
-        Scheme::GaussSeidel => {
+        Scheme::GaussSeidel => { // ARRUMAR
             (L_phi_n[[i-1, j]] - 2.0) /  (mesh[[i, j]].x - mesh[[i-1, j]].x).powi(2) + 
             (L_phi_n[[i, j-1]] - 2.0) /  (mesh[[i, j]].y - mesh[[i, j-1]].y).powi(2)
         }

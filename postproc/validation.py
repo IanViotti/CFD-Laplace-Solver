@@ -54,6 +54,8 @@ def compare_cp(solution_file):
     plt.title("Cp comparison (upper surface)")
     plt.grid(True)
     plt.legend()
+    plt.savefig("job_files/airfoil_cp_comparison.png", dpi=500)
+    
     plt.show()
 
     return rms

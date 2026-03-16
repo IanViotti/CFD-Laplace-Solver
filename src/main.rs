@@ -13,11 +13,11 @@ fn main() {
         XSF: 1.25, // Stretching factor in x 
         YSF: 1.25, // Stretching factor in y
         u_inf: 1.0, // Free stream velocity
-        t: 0.05, // thickness of the airfoil
+        t: 0.05, // Thickness of the airfoil
         n_max: 1000, // Max number of iterations
         scheme: solver_utils::Scheme::Jacobi, // Numerical scheme to use
     };
-    
+
     let file_name = "job_files/mesh.csv";
 
     println!("\nStarting Laplace Solver");

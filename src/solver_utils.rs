@@ -4,9 +4,6 @@ use crate::mesh::Node;
 use std::fs::File;
 use std::io::Write;
 
-pub struct ResidualWriter {
-    file: File,
-}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Scheme {
@@ -20,19 +17,22 @@ pub struct U {
     pub v: f64,
 }
 
+pub struct ResidualWriter {
+    file: File,
+}
+
 impl ResidualWriter {
 
     pub fn new(path: &str) -> Self {
         let mut file = File::create(path).unwrap();
-        writeln!(file, "iteration,residual").unwrap();
+        writeln!(file, "iter,max,average").unwrap();
 
         Self { file }
     }
 
-    pub fn write(&mut self, iteration: usize, residual: f64) {
-        writeln!(self.file, "{},{}", iteration, residual).unwrap();
+    pub fn write(&mut self, iter: usize, max_residual: f64, avg_residual: f64) {
+        writeln!(self.file, "{},{},{}", iter, max_residual, avg_residual).unwrap();
     }
-
 }
 
 // Calculate the velocity field from the phi field using central differences
@@ -119,10 +119,14 @@ pub fn save_solution(file_name: &str, mesh: &Array2<Node>, phi: &Array2<f64>, cp
     println!("\nSolution saved to '{}'.\n", file_name);
 }
 
-pub fn compute_residual_error(L_phi: &Array2<f64>) -> f64 {
+pub fn compute_residual_error(L_phi: &Array2<f64>) -> (f64, f64) {
 
     let (imax, jmax) = L_phi.dim();
+
     let mut max_residual = 0.0;
+    let mut sum_residual = 0.0;
+
+    let mut count = 0;
 
     for i in 0..imax {
         for j in 0..jmax {
@@ -132,8 +136,13 @@ pub fn compute_residual_error(L_phi: &Array2<f64>) -> f64 {
             if abs_residual > max_residual {
                 max_residual = abs_residual;
             }
+
+            sum_residual += abs_residual;
+            count += 1;
         }
     }
 
-    max_residual
+    let mean_residual = sum_residual / count as f64;
+
+    (max_residual, mean_residual)
 }
