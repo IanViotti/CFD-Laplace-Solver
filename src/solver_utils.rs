@@ -6,24 +6,39 @@ use std::fs::File;
 use std::io::Write;
 
 
-#[derive(Clone, Copy, Debug)]
-pub enum Scheme {
-    Jacobi,
-    GaussSeidel,
-}
-
+/// Structure representing the velocity vector at a grid point.
+///
+/// # Fields
+/// * `u` - Velocity component in the x-direction
+/// * `v` - Velocity component in the y-direction
 #[derive(Clone, Copy, Debug)]
 pub struct U {
     pub u: f64,
     pub v: f64,
 }
 
+/// Utility for writing residual history to a CSV file.
+///
+/// This is used to track convergence during iterative solution.
+///
+/// # Output format
+/// CSV file with columns:
+/// - iteration number
+/// - maximum residual
 pub struct ResidualWriter {
     file: File,
 }
 
 impl ResidualWriter {
 
+    /// Creates a new residual writer and initializes the output file.
+    ///
+    /// # Arguments
+    /// * `path` - Path to the output CSV file
+    ///
+    /// # Notes
+    /// - Existing files are overwritten
+    /// - A header row is written automatically
     pub fn new(path: &str) -> Self {
         let mut file = File::create(path).unwrap();
         writeln!(file, "iter,max").unwrap();
@@ -31,20 +46,43 @@ impl ResidualWriter {
         Self { file }
     }
 
+    /// Writes one iteration entry to the residual history file.
+    ///
+    /// # Arguments
+    /// * `iter` - Iteration number
+    /// * `max_residual` - Maximum residual at this iteration
     pub fn write(&mut self, iter: usize, max_residual: f64) {
         writeln!(self.file, "{},{}", iter, max_residual).unwrap();
     }
 }
 
-// Calculate the velocity field from the phi field using central differences
+/// Computes the velocity field from the potential field using finite differences.
+///
+/// The velocity components are obtained as:
+/// - u = ∂φ/∂x
+/// - v = ∂φ/∂y
+///
+/// # Arguments
+/// * `mesh` - Computational grid
+/// * `phi` - Potential field
+/// * `config` - Simulation parameters (freestream velocity)
+///
+/// # Returns
+/// * `Array2<U>` - Velocity field at each grid node
+///
+/// # Notes
+/// - Central differences are used in the interior
+/// - One-sided approximations are used at boundaries
+/// - Far-field boundaries are set to freestream values
 pub fn calc_velocity_field(
     mesh: &Array2<Node>,
     phi: &Array2<f64>,
-    config: config::Config)
-    -> Array2<U> {
+    config: config::Config,
+) -> Array2<U> {
 
     let u_inf = config.u_inf;
     let (imax, jmax) = phi.dim();
+
     let mut velocity = Array2::<U>::from_elem(
         (imax, jmax),
         U { u: 0.0, v: 0.0 }
@@ -59,16 +97,20 @@ pub fn calc_velocity_field(
             let v: f64;
 
             if i == 0 || i == imax - 1 || j == jmax - 1 {
-                // Outter boundary condition
-                u = u_inf; 
+                // Far-field boundary condition
+                u = u_inf;
                 v = 0.0;
-            }
-            else if j == 0 {
-                // Symmetry boundary condition
-                u = (phi[[i+1, j]] - phi[[i-1, j]]) / (mesh[[i+1, j]].x - mesh[[i-1, j]].x); 
-                v = (phi[[i, j+1]] - phi[[i, j]]) / (mesh[[i, j+1]].y - mesh[[i, j]].y); // Checar derivada
-            }
-            else {
+
+            } else if j == 0 {
+                // Symmetry / airfoil surface approximation
+                u = (phi[[i+1, j]] - phi[[i-1, j]]) /
+                    (mesh[[i+1, j]].x - mesh[[i-1, j]].x);
+
+                v = (phi[[i, j+1]] - phi[[i, j]]) /
+                    (mesh[[i, j+1]].y - mesh[[i, j]].y);
+
+            } else {
+                // Interior nodes (central differences)
                 let dx = mesh[[i+1, j]].x - mesh[[i-1, j]].x;
                 let dy = mesh[[i, j+1]].y - mesh[[i, j-1]].y;
 
@@ -83,27 +125,66 @@ pub fn calc_velocity_field(
     velocity
 }
 
-// Calculate the pressure coefficient from the velocity field
-pub fn calc_cp(velocity: &Array2<U>,
-            config: config::Config) -> Array2<f64> {
+/// Computes the pressure coefficient field from the velocity field.
+///
+/// The pressure coefficient is defined as:
+///
+/// Cp = 1 - (U² / U∞²)
+///
+/// # Arguments
+/// * `velocity` - Velocity field
+/// * `config` - Simulation parameters (freestream velocity)
+///
+/// # Returns
+/// * `Array2<f64>` - Pressure coefficient field
+///
+/// # Notes
+/// - Assumes incompressible, irrotational flow
+/// - Based on Bernoulli equation
+pub fn calc_cp(
+    velocity: &Array2<U>,
+    config: config::Config
+) -> Array2<f64> {
 
-            let u_inf = config.u_inf;
-            let mut cp = Array2::<f64>::zeros(velocity.dim());
+    let u_inf = config.u_inf;
+    let mut cp = Array2::<f64>::zeros(velocity.dim());
 
-            println!("\nCalculating pressure coefficient...");
-            
-            for ((i, j), velocity_ij) in velocity.indexed_iter() {
-                cp[[i, j]] = 1.0 - (velocity_ij.u.powi(2) + velocity_ij.v.powi(2)) / (u_inf.powi(2));
-            }
-   cp 
+    println!("\nCalculating pressure coefficient...");
+
+    for ((i, j), velocity_ij) in velocity.indexed_iter() {
+        cp[[i, j]] =
+            1.0 - (velocity_ij.u.powi(2) + velocity_ij.v.powi(2))
+            / (u_inf.powi(2));
+    }
+
+    cp
 }
 
-// Save solution to CSV file
-pub fn save_solution(file_name: &str, mesh: &Array2<Node>, phi: &Array2<f64>, cp: &Array2<f64>, velocity_field: &Array2<U>) {
+/// Saves the full solution (mesh + fields) to a CSV file.
+///
+/// # Output columns
+/// x, y, φ, u, v, Cp
+///
+/// # Arguments
+/// * `file_name` - Output file path
+/// * `mesh` - Computational grid
+/// * `phi` - Potential field
+/// * `cp` - Pressure coefficient field
+/// * `velocity_field` - Velocity field
+///
+/// # Notes
+/// - Each row corresponds to one grid point
+/// - Suitable for post-processing and visualization tools
+pub fn save_solution(
+    file_name: &str,
+    mesh: &Array2<Node>,
+    phi: &Array2<f64>,
+    cp: &Array2<f64>,
+    velocity_field: &Array2<U>,
+) {
 
     let mut file = File::create(file_name).unwrap();
 
-    // CSV header
     writeln!(file, "x,y,phi,u,v,cp").unwrap();
 
     for ((i, j), phi) in phi.indexed_iter() {
@@ -113,13 +194,27 @@ pub fn save_solution(file_name: &str, mesh: &Array2<Node>, phi: &Array2<f64>, cp
         writeln!(
             file,
             "{},{},{},{},{},{}",
-            node.x, node.y, phi, velocity_field[[i, j]].u, velocity_field[[i, j]].v, cp[[i, j]]
+            node.x,
+            node.y,
+            phi,
+            velocity_field[[i, j]].u,
+            velocity_field[[i, j]].v,
+            cp[[i, j]]
         ).unwrap();
     }
 
     println!("\nSolution saved to '{}'.\n", file_name);
 }
 
+/// Saves a scalar field matrix to a CSV file.
+///
+/// # Arguments
+/// * `file_name` - Output file path
+/// * `field` - Scalar field to be saved
+///
+/// # Notes
+/// - Data is written row by row (j-direction)
+/// - Useful for debugging or plotting in external tools
 pub fn save_field_matrix(file_name: &str, field: &Array2<f64>) {
 
     let mut file = File::create(file_name).unwrap();
@@ -140,13 +235,23 @@ pub fn save_field_matrix(file_name: &str, field: &Array2<f64>) {
     println!("Field saved to '{}'", file_name);
 }
 
+/// Computes residual statistics from the residual field.
+///
+/// # Arguments
+/// * `L_phi` - Residual field (discrete Laplacian)
+///
+/// # Returns
+/// * `(max, mean)` - Maximum and mean absolute residual
+///
+/// # Notes
+/// - Used for convergence monitoring
+/// - Maximum residual is typically used as stopping criterion
 pub fn compute_residual_error(L_phi: &Array2<f64>) -> (f64, f64) {
 
     let (imax, jmax) = L_phi.dim();
 
     let mut max_residual = 0.0;
     let mut sum_residual = 0.0;
-
     let mut count = 0;
 
     for i in 0..imax {
@@ -168,7 +273,19 @@ pub fn compute_residual_error(L_phi: &Array2<f64>) -> (f64, f64) {
     (max_residual, mean_residual)
 }
 
-// Calculate the pressure coefficient on the airfoil surface (j=3/2)
+/// Computes the pressure coefficient distribution along the airfoil surface.
+///
+/// # Arguments
+/// * `velocity` - Velocity field
+/// * `config` - Contains airfoil index range and freestream velocity
+///
+/// # Returns
+/// * `Array1<f64>` - Cp distribution along the airfoil chord
+///
+/// # Notes
+/// - Evaluated at the midpoint between j=0 and j=1 (surface location)
+/// - Velocity is averaged between these two points
+/// - Corresponds to Cp(x/c) curve required in the project
 pub fn airfoil_cp(
     velocity: &Array2<U>,
     config: &config::Config
@@ -183,9 +300,8 @@ pub fn airfoil_cp(
 
     for (k, i) in (ile..=ite).enumerate() {
 
-        // ponto acima da superfície → j = 1
-        let u = (velocity[[i, 1]].u + velocity[[i, 0]].u) / 2.0; // média entre o ponto acima da superfície (j=1) e o ponto na superfície (j=0)
-        let v = (velocity[[i, 1]].v + velocity[[i, 0]].v) / 2.0; // média entre o ponto acima da superfície (j=1) e o ponto na superfície (j=0)
+        let u = (velocity[[i, 1]].u + velocity[[i, 0]].u) / 2.0;
+        let v = (velocity[[i, 1]].v + velocity[[i, 0]].v) / 2.0;
 
         let V2 = u.powi(2) + v.powi(2);
 
@@ -195,7 +311,20 @@ pub fn airfoil_cp(
     cp
 }
 
-// Save airfoil Cp to CSV file
+/// Saves the airfoil pressure coefficient distribution to a CSV file.
+///
+/// # Output columns
+/// x, Cp
+///
+/// # Arguments
+/// * `file_name` - Output file path
+/// * `mesh` - Computational grid
+/// * `cp` - Airfoil Cp distribution
+/// * `config` - Contains airfoil index range
+///
+/// # Notes
+/// - Uses j=0 line as airfoil surface
+/// - Output is directly usable for Cp vs x/c plots
 pub fn save_airfoil_cp(
     file_name: &str,
     mesh: &Array2<Node>,
@@ -208,12 +337,11 @@ pub fn save_airfoil_cp(
     let ile = config.ILE;
     let ite = config.ITE;
 
-    // Header
     writeln!(file, "x,cp").unwrap();
 
     for (k, i) in (ile..=ite).enumerate() {
 
-        let x = mesh[[i, 0]].x; // superfície do aerofólio (j=0)
+        let x = mesh[[i, 0]].x;
 
         writeln!(file, "{:.6},{:.6}", x, cp[k]).unwrap();
     }
