@@ -2,6 +2,9 @@ mod mesh;
 mod solver_core;
 mod solver_utils;
 mod config;
+mod tm_schemes;
+
+use crate::tm_schemes::{gauss_seidel::GaussSeidel, jacobi::Jacobi, sor::SOR};
 
 fn main() {
 
@@ -15,10 +18,11 @@ fn main() {
         u_inf: 1.0, // Free stream velocity
         t: 0.05, // Thickness of the airfoil
         n_max: 1000, // Max number of iterations
-        scheme: solver_utils::Scheme::Jacobi, // Numerical scheme to use
     };
 
-    let file_name = "job_files/mesh.csv";
+    let tm_scheme = SOR { omega: 1.8}; // Successive Over-Relaxation with relaxation factor 
+
+    let mesh_file_name = "job_files/mesh/mesh.csv";
 
     println!("\nStarting Laplace Solver");
     println!("with simulation configuration: {:#?}", config);
@@ -27,10 +31,10 @@ fn main() {
     let mesh = mesh::build_cartesian_mesh(config);
 
     // Save mesh to CSV
-    mesh::save_mesh(file_name, &mesh);
+    mesh::save_mesh(mesh_file_name, &mesh);
 
     // Solve for phi field
-    let phi = solver_core::solve(&mesh, &config);
+    let phi = solver_core::solve(&mesh, &config, &tm_scheme);
 
     // Calculate velocity field
     let velocity_field = solver_utils::calc_velocity_field(&mesh, &phi, config);
@@ -38,6 +42,15 @@ fn main() {
     let cp = solver_utils::calc_cp(&velocity_field, config);
 
     // Save solution to CSV
-    solver_utils::save_solution("job_files/solution.csv", &mesh, &phi, &cp, &velocity_field);
+    solver_utils::save_solution("job_files/solution_data/solution.csv", &mesh, &phi, &cp, &velocity_field);
+
+    solver_utils::save_field_matrix("job_files/solution_data/phi_matrix.csv", &phi);
+    solver_utils::save_field_matrix("job_files/solution_data/cp_matrix.csv", &cp);
+    solver_utils::save_field_matrix("job_files/solution_data/u_matrix.csv", &velocity_field.map(|v| v.u));
+    solver_utils::save_field_matrix("job_files/solution_data/v_matrix.csv", &velocity_field.map(|v| v.v));
+
+    let airfoil_cp = solver_utils::airfoil_cp(&velocity_field, &config);
+    
+    solver_utils::save_airfoil_cp("job_files/solution_data/airfoil_cp.csv", &mesh, &airfoil_cp, &config);  
 
 }

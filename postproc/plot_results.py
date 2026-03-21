@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
-def plot_phi_contour(csv_file, levels=30):
+def plot_phi_contour(csv_file, levels=30, result_file="job_files/post_proc_results/phi_contour.png"):
     """
     Plot Cp contour using contourf from x,y coordinates in the CSV.
     """
@@ -55,11 +55,11 @@ def plot_phi_contour(csv_file, levels=30):
     ax.set_title("Phi contour")
     ax.axis("equal")
 
-    plt.savefig("job_files/phi_contour.png", dpi=500)
+    plt.savefig(result_file, dpi=500)
 
     plt.show()
 
-def plot_U_vector(csv_file):
+def plot_U_vector(csv_file, result_file="job_files/post_proc_results/velocity_vector_field.png"):
     """
     Reads the solution CSV and plots the vector field (phi_x, phi_y).
 
@@ -101,12 +101,12 @@ def plot_U_vector(csv_file):
     ax.set_title("Velocity vector field")
     ax.axis("equal")
 
-    plt.savefig("job_files/velocity_vector_field.png", dpi=500)
+    plt.savefig(result_file, dpi=500)
 
     plt.show()
 
 
-def plot_cp_contour(csv_file, levels=30):
+def plot_cp_contour(csv_file, levels=30, result_file="job_files/post_proc_results/cp_contour.png"):
     """
     Plot Cp contour using contourf from x,y coordinates in the CSV.
     """
@@ -159,11 +159,11 @@ def plot_cp_contour(csv_file, levels=30):
     ax.set_title("Cp contour")
     ax.axis("equal")
 
-    plt.savefig("job_files/airfoil_cp_contour.png", dpi=500)
+    plt.savefig(result_file, dpi=500)
 
     plt.show()
 
 if __name__ == "__main__":
-    plot_phi_contour("job_files/solution.csv")
-    plot_U_vector("job_files/solution.csv")
-    plot_cp_contour("job_files/solution.csv")
+    plot_phi_contour("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/phi_contour.png")
+    plot_U_vector("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/velocity_vector_field.png")
+    plot_cp_contour("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/cp_contour.png")

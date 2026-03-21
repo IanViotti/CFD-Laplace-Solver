@@ -1,4 +1,4 @@
-use crate::solver_utils::Scheme;
+use crate::tm_schemes::TimeMarchingScheme;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
@@ -11,5 +11,4 @@ pub struct Config {
     pub u_inf: f64, // Free stream velocity
     pub t: f64, // thickness of the airfoil
     pub n_max: usize, // Max number of iterations
-    pub scheme: Scheme, // Numerical scheme to use
 }

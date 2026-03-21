@@ -1,4 +1,5 @@
 use ndarray::Array2;
+use ndarray::Array1;
 use crate::config;
 use crate::mesh::Node;
 use std::fs::File;
@@ -25,13 +26,13 @@ impl ResidualWriter {
 
     pub fn new(path: &str) -> Self {
         let mut file = File::create(path).unwrap();
-        writeln!(file, "iter,max,average").unwrap();
+        writeln!(file, "iter,max").unwrap();
 
         Self { file }
     }
 
-    pub fn write(&mut self, iter: usize, max_residual: f64, avg_residual: f64) {
-        writeln!(self.file, "{},{},{}", iter, max_residual, avg_residual).unwrap();
+    pub fn write(&mut self, iter: usize, max_residual: f64) {
+        writeln!(self.file, "{},{}", iter, max_residual).unwrap();
     }
 }
 
@@ -119,6 +120,26 @@ pub fn save_solution(file_name: &str, mesh: &Array2<Node>, phi: &Array2<f64>, cp
     println!("\nSolution saved to '{}'.\n", file_name);
 }
 
+pub fn save_field_matrix(file_name: &str, field: &Array2<f64>) {
+
+    let mut file = File::create(file_name).unwrap();
+
+    let (imax, jmax) = field.dim();
+
+    for j in 0..jmax {
+        for i in 0..imax {
+            write!(file, "{:.6}", field[[i, j]]).unwrap();
+
+            if i < imax - 1 {
+                write!(file, ",").unwrap();
+            }
+        }
+        writeln!(file).unwrap();
+    }
+
+    println!("Field saved to '{}'", file_name);
+}
+
 pub fn compute_residual_error(L_phi: &Array2<f64>) -> (f64, f64) {
 
     let (imax, jmax) = L_phi.dim();
@@ -145,4 +166,57 @@ pub fn compute_residual_error(L_phi: &Array2<f64>) -> (f64, f64) {
     let mean_residual = sum_residual / count as f64;
 
     (max_residual, mean_residual)
+}
+
+// Calculate the pressure coefficient on the airfoil surface (j=3/2)
+pub fn airfoil_cp(
+    velocity: &Array2<U>,
+    config: &config::Config
+) -> Array1<f64> {
+
+    let ile = config.ILE;
+    let ite = config.ITE;
+    let u_inf = config.u_inf;
+
+    let n_points = ite - ile + 1;
+    let mut cp = Array1::<f64>::zeros(n_points);
+
+    for (k, i) in (ile..=ite).enumerate() {
+
+        // ponto acima da superfície → j = 1
+        let u = (velocity[[i, 1]].u + velocity[[i, 0]].u) / 2.0; // média entre o ponto acima da superfície (j=1) e o ponto na superfície (j=0)
+        let v = (velocity[[i, 1]].v + velocity[[i, 0]].v) / 2.0; // média entre o ponto acima da superfície (j=1) e o ponto na superfície (j=0)
+
+        let V2 = u.powi(2) + v.powi(2);
+
+        cp[k] = 1.0 - V2 / (u_inf.powi(2));
+    }
+
+    cp
+}
+
+// Save airfoil Cp to CSV file
+pub fn save_airfoil_cp(
+    file_name: &str,
+    mesh: &Array2<Node>,
+    cp: &Array1<f64>,
+    config: &config::Config
+) {
+
+    let mut file = File::create(file_name).unwrap();
+
+    let ile = config.ILE;
+    let ite = config.ITE;
+
+    // Header
+    writeln!(file, "x,cp").unwrap();
+
+    for (k, i) in (ile..=ite).enumerate() {
+
+        let x = mesh[[i, 0]].x; // superfície do aerofólio (j=0)
+
+        writeln!(file, "{:.6},{:.6}", x, cp[k]).unwrap();
+    }
+
+    println!("Airfoil Cp saved to '{}'", file_name);
 }
