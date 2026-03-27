@@ -28,7 +28,7 @@ use crate::solver_utils;
 pub fn solve(
     mesh: &Array2<Node>,
     config: &config::Config,
-    tm_scheme: &dyn it_schemes::IterativeScheme,
+    it_scheme: &dyn it_schemes::IterativeScheme,
 ) -> Array2<f64> {
 
     let n_max = config.n_max;
@@ -48,7 +48,7 @@ pub fn solve(
         input_boundary_conditions(mesh, &mut phi_n, config);
 
         // Perform one iteration of the selected scheme
-        let max_residual = tm_scheme.step(mesh, &mut phi_n);
+        let max_residual = it_scheme.step(mesh, &mut phi_n);
 
         // Log convergence history
         residual_writer.write(iter, max_residual);

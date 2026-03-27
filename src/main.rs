@@ -4,7 +4,11 @@ mod solver_utils;
 mod config;
 mod it_schemes;
 
-use crate::it_schemes::{gauss_seidel::GaussSeidel, jacobi::Jacobi, sor::SOR, line_gauss_seidel::LineGaussSeidel};
+use crate::it_schemes::{gauss_seidel::GaussSeidel, 
+                        jacobi::Jacobi, 
+                        sor::SOR, 
+                        line_gauss_seidel::LineGaussSeidel, 
+                        slor::SLOR};
 
 /// Entry point of the CFD solver.
 ///
@@ -48,7 +52,7 @@ fn main() {
     // ===============================
     // Time-Marching Scheme Selection
     // ===============================
-    let tm_scheme = LineGaussSeidel; // Successive Over-Relaxation with ω = 1.7
+    let it_scheme = SLOR { r: 0.9}; // Successive Over-Relaxation with ω = 1.7
     // Alternative schemes:
     // let tm_scheme = Jacobi;
     // let tm_scheme = GaussSeidel;
@@ -69,7 +73,7 @@ fn main() {
     // ===============================
     // Solve Laplace Equation
     // ===============================
-    let phi = solver_core::solve(&mesh, &config, &tm_scheme);
+    let phi = solver_core::solve(&mesh, &config, &it_scheme);
 
     // ===============================
     // Post-Processing
