@@ -22,8 +22,8 @@ def plot_mesh(csv_file):
     plt.xlabel("x")
     plt.ylabel("y")
     plt.title("Mesh node locations")
-    plt.savefig("job_files/mesh.png", dpi=500)
+    plt.savefig("job_files/mesh/mesh.png", dpi=500)
     plt.show()
 
 if __name__ == "__main__":
-    plot_mesh("job_files/mesh.csv")
+    plot_mesh("job_files/mesh/mesh.csv")

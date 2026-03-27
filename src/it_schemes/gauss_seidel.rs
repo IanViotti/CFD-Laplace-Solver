@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use crate::mesh::Node;
-use crate::tm_schemes::TimeMarchingScheme;
+use crate::it_schemes::IterativeScheme;
 use crate::solver_core::calc_L_phi_ij;
 
 /// Gauss-Seidel iterative method for solving the discrete Laplace equation.
@@ -32,7 +32,7 @@ use crate::solver_core::calc_L_phi_ij;
 /// - Convergence depends on sweep ordering
 pub struct GaussSeidel;
 
-impl TimeMarchingScheme for GaussSeidel {
+impl IterativeScheme for GaussSeidel {
 
     /// Performs one Gauss-Seidel iteration over the domain.
     ///
@@ -60,9 +60,6 @@ impl TimeMarchingScheme for GaussSeidel {
 
         let (imax, jmax) = mesh.dim();
 
-        // Correction field (optional, mainly for clarity/debugging)
-        let mut C_n = Array2::<f64>::zeros((imax, jmax));
-
         let mut max_residual = 0.0;
 
         // Sweep through interior nodes
@@ -81,14 +78,18 @@ impl TimeMarchingScheme for GaussSeidel {
                     phi_n[[i, j+1]]
                 );
 
-                // Diagonal operator approximation
-                let N_scheme = N_gs(mesh, i, j);
+                // Compute dx dy
+                let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
+                let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
+
+                // Compute correction at poin i,j
+                let N = -2.0 / dx.powi(2) - 2.0 / dy.powi(2); 
 
                 // Compute correction
-                C_n[[i, j]] = - L_phi_n_ij / N_scheme;
+                let C_ij = - L_phi_n_ij / N ;
 
                 // Immediate update (in-place)
-                phi_n[[i, j]] += C_n[[i, j]];
+                phi_n[[i, j]] += C_ij;
 
                 // Track maximum residual
                 if L_phi_n_ij.abs() > max_residual {
@@ -99,24 +100,4 @@ impl TimeMarchingScheme for GaussSeidel {
 
         max_residual
     }
-}
-
-/// Computes the diagonal approximation of the operator for Gauss-Seidel.
-///
-/// # Arguments
-/// * `mesh` - Computational grid
-/// * `i`, `j` - Node indices
-///
-/// # Returns
-/// * `f64` - Diagonal coefficient N
-///
-/// # Notes
-/// - Identical to Jacobi diagonal term
-/// - Represents central coefficient of the discrete Laplacian
-fn N_gs(mesh: &Array2<Node>, i: usize, j: usize) -> f64 {
-
-    let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
-    let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
-
-    -2.0 / dx.powi(2) - 2.0 / dy.powi(2)
 }

@@ -2,11 +2,12 @@ pub mod jacobi;
 pub mod gauss_seidel;
 pub mod sor;
 pub mod line_gauss_seidel;
+pub mod slor;
 
 use ndarray::Array2;
 use crate::mesh::Node;
 
-/// Trait defining a generic time-marching (iterative) scheme.
+/// Trait defining a generic iterative scheme.
 ///
 /// This trait provides a unified interface for all iterative methods
 /// used to solve the discrete Laplace equation.
@@ -50,7 +51,7 @@ use crate::mesh::Node;
 /// - `GaussSeidel` → in-place, sequential updates
 /// - `SOR` → relaxed Gauss-Seidel
 /// - `LineGaussSeidel` → line-wise implicit solver
-pub trait TimeMarchingScheme {
+pub trait IterativeScheme {
 
     /// Performs one iteration (time-marching step).
     ///

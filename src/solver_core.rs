@@ -1,5 +1,5 @@
 use ndarray::Array2;
-use crate::{config, tm_schemes};
+use crate::{config, it_schemes};
 use crate::mesh::Node;
 use crate::solver_utils;
 
@@ -28,7 +28,7 @@ use crate::solver_utils;
 pub fn solve(
     mesh: &Array2<Node>,
     config: &config::Config,
-    tm_scheme: &dyn tm_schemes::TimeMarchingScheme,
+    tm_scheme: &dyn it_schemes::IterativeScheme,
 ) -> Array2<f64> {
 
     let n_max = config.n_max;

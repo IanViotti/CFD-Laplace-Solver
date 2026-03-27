@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use crate::mesh::Node;
-use crate::tm_schemes::TimeMarchingScheme;
+use crate::it_schemes::IterativeScheme;
 use crate::solver_core::calc_L_phi_ij;
 
 /// Successive Over-Relaxation (SOR) method.
@@ -49,7 +49,7 @@ pub struct SOR {
     pub omega: f64,
 }
 
-impl TimeMarchingScheme for SOR {
+impl IterativeScheme for SOR {
 
     /// Performs one SOR iteration over the domain.
     ///
@@ -76,10 +76,8 @@ impl TimeMarchingScheme for SOR {
 
         let (imax, jmax) = mesh.dim();
 
-        // Optional: can be removed for performance
-        let mut C_n = Array2::<f64>::zeros((imax, jmax));
-
         let mut max_residual = 0.0;
+
 
         for i in 1..imax-1 {
             for j in 1..jmax-1 {
@@ -96,14 +94,17 @@ impl TimeMarchingScheme for SOR {
                     phi_n[[i, j+1]]
                 );
 
-                // Relaxed diagonal operator
-                let N_scheme = N_sor(mesh, i, j, self.omega);
+                // Compute dx dy
+                let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
+                let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
 
-                // Compute correction (already includes ω)
-                C_n[[i, j]] = - L_phi_n_ij / N_scheme;
+                let N = -2.0 / dx.powi(2) - 2.0 / dy.powi(2); 
+
+                // Compute correction
+                let C_ij = - L_phi_n_ij / N * self.omega;
 
                 // In-place update
-                phi_n[[i, j]] += C_n[[i, j]];
+                phi_n[[i, j]] += C_ij;
 
                 // Track maximum residual
                 if L_phi_n_ij.abs() > max_residual {
@@ -114,26 +115,4 @@ impl TimeMarchingScheme for SOR {
 
         max_residual
     }
-}
-
-/// Computes the relaxed diagonal operator for SOR.
-///
-/// # Arguments
-/// * `mesh` - Computational grid
-/// * `i`, `j` - Node indices
-/// * `omega` - Relaxation factor
-///
-/// # Returns
-/// * `f64` - Modified diagonal coefficient
-///
-/// # Notes
-/// - Equivalent to scaling the Gauss-Seidel update by ω
-/// - This formulation avoids explicitly multiplying the correction by ω
-fn N_sor(mesh: &Array2<Node>, i: usize, j: usize, omega: f64) -> f64 {
-
-    let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
-    let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
-
-    // Standard diagonal term scaled by 1/ω
-    (-2.0 / dx.powi(2) - 2.0 / dy.powi(2)) * (1.0 / omega)
 }

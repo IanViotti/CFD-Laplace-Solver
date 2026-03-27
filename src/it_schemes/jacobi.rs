@@ -1,6 +1,6 @@
 use ndarray::Array2;
 use crate::mesh::Node;
-use crate::tm_schemes::TimeMarchingScheme;
+use crate::it_schemes::IterativeScheme;
 use crate::solver_core::calc_L_phi_ij;
 
 /// Jacobi iterative method for solving the discrete Laplace equation.
@@ -33,7 +33,7 @@ use crate::solver_core::calc_L_phi_ij;
 /// - A temporary array is required to store φⁿ⁺¹
 pub struct Jacobi;
 
-impl TimeMarchingScheme for Jacobi {
+impl IterativeScheme for Jacobi {
 
     /// Performs one Jacobi iteration over the entire domain.
     ///
@@ -57,9 +57,6 @@ impl TimeMarchingScheme for Jacobi {
 
         let (imax, jmax) = mesh.dim();
 
-        // Correction field
-        let mut C_n = Array2::<f64>::zeros((imax, jmax));
-
         // Temporary storage for next iteration
         let mut phi_np1 = phi_n.clone();
 
@@ -81,14 +78,17 @@ impl TimeMarchingScheme for Jacobi {
                     phi_n[[i, j+1]]
                 );
 
-                // Diagonal operator approximation
-                let N_scheme = N_jacobi(mesh, i, j);
+                // Compute dx dy
+                let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
+                let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
+
+                let N = -2.0 / dx.powi(2) - 2.0 / dy.powi(2); 
 
                 // Compute correction
-                C_n[[i, j]] = - L_phi_n_ij / N_scheme;
+                let C_ij = - L_phi_n_ij / N ;
 
                 // Update using only previous iteration values
-                phi_np1[[i, j]] = phi_n[[i, j]] + C_n[[i, j]];
+                phi_np1[[i, j]] = phi_n[[i, j]] + C_ij;
 
                 // Track maximum residual
                 if L_phi_n_ij.abs() > max_residual {
@@ -102,27 +102,4 @@ impl TimeMarchingScheme for Jacobi {
 
         max_residual
     }
-}
-
-/// Computes the diagonal approximation of the discrete operator.
-///
-/// This corresponds to the central coefficient of the Laplacian
-/// in finite difference form.
-///
-/// # Arguments
-/// * `mesh` - Computational grid
-/// * `i`, `j` - Node indices
-///
-/// # Returns
-/// * `f64` - Diagonal coefficient N
-///
-/// # Notes
-/// - Based on second-order central differences
-/// - Accounts for non-uniform grid spacing
-fn N_jacobi(mesh: &Array2<Node>, i: usize, j: usize) -> f64 {
-
-    let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
-    let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
-
-    -2.0 / dx.powi(2) - 2.0 / dy.powi(2)
 }

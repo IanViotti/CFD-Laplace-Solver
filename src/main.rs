@@ -2,9 +2,9 @@ mod mesh;
 mod solver_core;
 mod solver_utils;
 mod config;
-mod tm_schemes;
+mod it_schemes;
 
-use crate::tm_schemes::{gauss_seidel::GaussSeidel, jacobi::Jacobi, sor::SOR};
+use crate::it_schemes::{gauss_seidel::GaussSeidel, jacobi::Jacobi, sor::SOR, line_gauss_seidel::LineGaussSeidel};
 
 /// Entry point of the CFD solver.
 ///
@@ -48,7 +48,7 @@ fn main() {
     // ===============================
     // Time-Marching Scheme Selection
     // ===============================
-    let tm_scheme = SOR { omega: 1.8 };
+    let tm_scheme = LineGaussSeidel; // Successive Over-Relaxation with ω = 1.7
     // Alternative schemes:
     // let tm_scheme = Jacobi;
     // let tm_scheme = GaussSeidel;
