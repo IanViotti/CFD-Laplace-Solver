@@ -29,6 +29,7 @@ pub fn solve(
     mesh: &Array2<Node>,
     config: &config::Config,
     it_scheme: &dyn it_schemes::IterativeScheme,
+    jobname: &str,
 ) -> Array2<f64> {
 
     let n_max = config.n_max;
@@ -38,7 +39,7 @@ pub fn solve(
 
     // Residual logging utility
     let mut residual_writer =
-        solver_utils::ResidualWriter::new("job_files/solution_data/residual_history.csv");
+        solver_utils::ResidualWriter::new(&format!("job_files/{}/solution_data/residual_history.csv", jobname));
 
     println!("\nStarting solver for {} iterations...\n", n_max);
 

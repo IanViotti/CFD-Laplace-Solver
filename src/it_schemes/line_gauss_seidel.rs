@@ -2,6 +2,7 @@ use ndarray::Array2;
 use crate::mesh::Node;
 use crate::solver_core::calc_L_phi_ij;
 use crate::it_schemes::IterativeScheme;
+use crate::solver_utils::thomas;
 
 /// LineGaussSeidel
 ///
@@ -60,17 +61,16 @@ impl IterativeScheme for LineGaussSeidel {
                 let jj = j - 1;
 
                 // ----- Implicit contribution in y (δ̃yy operator applied to C) -----
-                a[jj] = 1.0 /
-                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0)
+                a[jj] = 2.0 /
+                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y))
                     * (mesh[[i, j]].y - mesh[[i, j-1]].y));
 
-                c[jj] = 1.0 /
-                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0)
+                c[jj] = 2.0 /
+                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y))
                     * (mesh[[i, j+1]].y - mesh[[i, j]].y));
 
                 // ----- Explicit contribution in x included in the main diagonal -----
-                b[jj] = -2.0 /
-                    ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2)
+                b[jj] = -2.0 / ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2)
                     - (a[jj] + c[jj]);
 
                 // ----- Compute full residual Lφ at iteration n -----
@@ -90,8 +90,7 @@ impl IterativeScheme for LineGaussSeidel {
                 // 1) The complete residual
                 // 2) Gauss-Seidel contribution from the previous line (i-1)
                 d[jj] = - L_phi_n_ij
-                        - C[jj] /
-                          ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2);
+                        - C[jj] / ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2);
             }
 
             // Solve tridiagonal system to obtain corrections C(i,j)
@@ -137,43 +136,3 @@ impl IterativeScheme for LineGaussSeidel {
     }
 }
 
-/// Thomas algorithm
-///
-/// Solves a tridiagonal linear system:
-///
-///     a_j x_{j-1} + b_j x_j + c_j x_{j+1} = d_j
-///
-/// Used here to solve for all corrections C(i,j) along
-/// a vertical line in the Line Gauss-Seidel method.
-fn thomas(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> Vec<f64> {
-
-    let n = d.len();
-
-    let mut c_star = vec![0.0; n];
-    let mut d_star = vec![0.0; n];
-    let mut x = vec![0.0; n];
-
-    // Forward sweep
-    c_star[0] = c[0] / b[0];
-    d_star[0] = d[0] / b[0];
-
-    for i in 1..n {
-        let denom = b[i] - a[i] * c_star[i - 1];
-
-        if denom.abs() < 1e-14 {
-            panic!("Thomas breakdown at i={}", i);
-        }
-
-        c_star[i] = if i < n - 1 { c[i] / denom } else { 0.0 };
-        d_star[i] = (d[i] - a[i] * d_star[i - 1]) / denom;
-    }
-
-    // Back substitution
-    x[n - 1] = d_star[n - 1];
-
-    for i in (0..n - 1).rev() {
-        x[i] = d_star[i] - c_star[i] * x[i + 1];
-    }
-
-    x
-}

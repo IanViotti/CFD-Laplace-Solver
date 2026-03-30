@@ -2,6 +2,8 @@ use ndarray::Array2;
 use crate::mesh::Node;
 use crate::solver_core::calc_L_phi_ij;
 use crate::it_schemes::IterativeScheme;
+use crate::solver_utils::thomas;
+
 
 /// SLOR — Successive Line Over-Relaxation
 ///
@@ -78,22 +80,22 @@ impl IterativeScheme for SLOR {
 
                 // ===== Implicit operator in y applied to C =====
                 // These coefficients come from δ̃yy C
-                a[jj] = (1.0 / r) *
-                    1.0 /
-                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0)
+                
+                let ka = 2.0 /
+                    ((mesh[[i, j+1]].y - mesh[[i, j-1]].y) 
                     * (mesh[[i, j]].y - mesh[[i, j-1]].y));
 
-                c[jj] = (1.0 / r) *
-                    1.0 /
-                    (((mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0)
+                a[jj] = (1.0 / r) * ka;
+
+                let kc = 2.0 /
+                    ((mesh[[i, j+1]].y - mesh[[i, j-1]].y)
                     * (mesh[[i, j+1]].y - mesh[[i, j]].y));
 
+                c[jj] = (1.0 / r) * kc;
+
                 // ===== Explicit contribution in x included in diagonal =====
-                b[jj] = (1.0 / r) * (
-                    -2.0 /
-                    ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2)
-                    - (a[jj] + c[jj])
-                );
+                b[jj] = -(2.0 / r) /  ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2)
+                    - a[jj] - c[jj];
 
                 // ===== Full residual Lφ evaluated at iteration n =====
                 let L_phi_n_ij = calc_L_phi_ij(
@@ -112,8 +114,7 @@ impl IterativeScheme for SLOR {
                 // 1) Complete residual
                 // 2) Gauss-Seidel contribution from previous line (i-1)
                 d[jj] = -L_phi_n_ij
-                    + C[jj] /
-                    ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2);
+                        //- C[jj] / ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2);
             }
 
             // ===== Solve tridiagonal system =====
@@ -157,44 +158,4 @@ impl IterativeScheme for SLOR {
 
         max_residual
     }
-}
-
-/// Thomas algorithm for tridiagonal systems
-///
-/// Solves:
-///
-///     a_j x_{j-1} + b_j x_j + c_j x_{j+1} = d_j
-///
-/// Used to compute all corrections C(i,j) along a vertical line.
-fn thomas(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> Vec<f64> {
-
-    let n = d.len();
-
-    let mut c_star = vec![0.0; n];
-    let mut d_star = vec![0.0; n];
-    let mut x = vec![0.0; n];
-
-    // ----- Forward sweep -----
-    c_star[0] = c[0] / b[0];
-    d_star[0] = d[0] / b[0];
-
-    for i in 1..n {
-        let denom = b[i] - a[i] * c_star[i - 1];
-
-        if denom.abs() < 1e-14 {
-            panic!("Thomas breakdown at i={}", i);
-        }
-
-        c_star[i] = if i < n - 1 { c[i] / denom } else { 0.0 };
-        d_star[i] = (d[i] - a[i] * d_star[i - 1]) / denom;
-    }
-
-    // ----- Back substitution -----
-    x[n - 1] = d_star[n - 1];
-
-    for i in (0..n - 1).rev() {
-        x[i] = d_star[i] - c_star[i] * x[i + 1];
-    }
-
-    x
 }

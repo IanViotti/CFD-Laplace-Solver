@@ -79,14 +79,18 @@ impl IterativeScheme for GaussSeidel {
                 );
 
                 // Compute dx dy
-                let dx = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
-                let dy = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
+                let dx_e = mesh[[i + 1, j]].x - mesh[[i, j]].x;     // East
+                let dx_w = mesh[[i, j]].x - mesh[[i - 1, j]].x;     // West
+                let dy_n = mesh[[i, j + 1]].y - mesh[[i, j]].y;     // North
+                let dy_s = mesh[[i, j]].y - mesh[[i, j - 1]].y;     // South
 
                 // Compute correction at poin i,j
-                let N = -2.0 / dx.powi(2) - 2.0 / dy.powi(2); 
+                let n_x = -2.0 / (dx_e * dx_w);
+                let n_y = -2.0 / (dy_n * dy_s);
+                let n = n_x + n_y;
 
                 // Compute correction
-                let C_ij = - L_phi_n_ij / N ;
+                let C_ij = - L_phi_n_ij / n;
 
                 // Immediate update (in-place)
                 phi_n[[i, j]] += C_ij;

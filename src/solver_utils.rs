@@ -348,3 +348,51 @@ pub fn save_airfoil_cp(
 
     println!("Airfoil Cp saved to '{}'", file_name);
 }
+
+/// Thomas algorithm
+///
+/// Solves a tridiagonal linear system:
+///
+///     a_j x_{j-1} + b_j x_j + c_j x_{j+1} = d_j
+///
+/// Used here to solve for all corrections C(i,j) along
+/// a vertical line in the Line Gauss-Seidel method.
+pub fn thomas(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> Vec<f64> {
+
+    let n = d.len();
+
+    let mut c_star = vec![0.0; n];
+    let mut d_star = vec![0.0; n];
+    let mut x = vec![0.0; n];
+
+    // Forward sweep
+    c_star[0] = c[0] / b[0];
+    d_star[0] = d[0] / b[0];
+
+    for i in 1..n {
+        let denom = b[i] - a[i] * c_star[i - 1];
+
+        if denom.abs() < 1e-14 {
+            panic!("Thomas breakdown at i={}", i);
+        }
+
+        c_star[i] = if i < n - 1 { c[i] / denom } else { 0.0 };
+        d_star[i] = (d[i] - a[i] * d_star[i - 1]) / denom;
+    }
+
+    // Back substitution
+    x[n - 1] = d_star[n - 1];
+
+    for i in (0..n - 1).rev() {
+        x[i] = d_star[i] - c_star[i] * x[i + 1];
+    }
+
+    x
+}
+
+// Initialize solver directory
+pub fn init_solver_directory(jobname: &str) {
+    std::fs::create_dir_all(&format!("job_files/{}/solution_data", jobname)).unwrap();
+    std::fs::create_dir_all(&format!("job_files/{}/post_proc_result", jobname)).unwrap();
+    std::fs::create_dir_all(&format!("job_files/{}/mesh", jobname)).unwrap();
+}

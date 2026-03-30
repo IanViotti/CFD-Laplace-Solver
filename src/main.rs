@@ -45,19 +45,23 @@ fn main() {
         XSF: 1.25, // Stretching factor in x-direction
         YSF: 1.25, // Stretching factor in y-direction
         u_inf: 1.0, // Freestream velocity (U∞)
-        t: 0.05,   // Airfoil thickness parameter
-        n_max: 1000, // Maximum number of solver iterations
+        t: 0.10,   // Airfoil thickness parameter
+        n_max: 5000, // Maximum number of solver iterations
     };
+
+    // Job name for output organization
+    let jobname = "slor_r1.8_t10";
+
+    // Create necessary directories for output
+    solver_utils::init_solver_directory(jobname);
 
     // ===============================
     // Time-Marching Scheme Selection
     // ===============================
-    let it_scheme = SLOR { r: 0.9}; // Successive Over-Relaxation with ω = 1.7
+    let it_scheme = SLOR { r: 1.8 }; // Successive Line Over-Relaxation with r = 1.5
     // Alternative schemes:
-    // let tm_scheme = Jacobi;
-    // let tm_scheme = GaussSeidel;
 
-    let mesh_file_name = "job_files/mesh/mesh.csv";
+    let mesh_file_name = &format!("job_files/{}/mesh/mesh.csv", jobname);
 
     println!("\nStarting Laplace Solver");
     println!("Simulation configuration: {:#?}", config);
@@ -73,7 +77,7 @@ fn main() {
     // ===============================
     // Solve Laplace Equation
     // ===============================
-    let phi = solver_core::solve(&mesh, &config, &it_scheme);
+    let phi = solver_core::solve(&mesh, &config, &it_scheme, &jobname);
 
     // ===============================
     // Post-Processing
@@ -93,7 +97,7 @@ fn main() {
 
     // Save full solution (mesh + fields)
     solver_utils::save_solution(
-        "job_files/solution_data/solution.csv",
+        &format!("job_files/{}/solution_data/solution.csv", jobname),
         &mesh,
         &phi,
         &cp,
@@ -102,22 +106,22 @@ fn main() {
 
     // Save individual fields (useful for debugging/plotting)
     solver_utils::save_field_matrix(
-        "job_files/solution_data/phi_matrix.csv",
+        &format!("job_files/{}/solution_data/phi_matrix.csv", jobname),
         &phi
     );
 
     solver_utils::save_field_matrix(
-        "job_files/solution_data/cp_matrix.csv",
+        &format!("job_files/{}/solution_data/cp_matrix.csv", jobname),
         &cp
     );
 
     solver_utils::save_field_matrix(
-        "job_files/solution_data/u_matrix.csv",
+        &format!("job_files/{}/solution_data/u_matrix.csv", jobname),
         &velocity_field.map(|v| v.u)
     );
 
     solver_utils::save_field_matrix(
-        "job_files/solution_data/v_matrix.csv",
+        &format!("job_files/{}/solution_data/v_matrix.csv", jobname),
         &velocity_field.map(|v| v.v)
     );
 
@@ -128,7 +132,7 @@ fn main() {
         solver_utils::airfoil_cp(&velocity_field, &config);
 
     solver_utils::save_airfoil_cp(
-        "job_files/solution_data/airfoil_cp.csv",
+        &format!("job_files/{}/solution_data/airfoil_cp.csv", jobname),
         &mesh,
         &airfoil_cp,
         &config
