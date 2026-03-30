@@ -61,7 +61,7 @@ def compare_raw_cp_airfoil(solution_file, result_file):
     return rms
 
 
-def compare_processed_cp_airfoil(cp_file, result_file):
+def compare_processed_cp_airfoil(thickness_label, cp_file, result_file):
 
     # Reference data (PDF page 8)
     x_ref = np.array([
@@ -72,13 +72,23 @@ def compare_processed_cp_airfoil(cp_file, result_file):
         1.00000
     ])
 
-    cp_ref =  np.array([
-        -0.11456,0.00111,0.04022,0.06819,0.08709,
-        0.10500,0.11706,0.12593,0.13203,0.13561,
-        0.13673,0.13561,0.13204,0.12594,0.11706,
-        0.10501,0.08710,0.06819,0.04023,0.00111,
-        -0.11456
-    ])
+    if thickness_label == "5%":
+        cp_ref = np.array([
+            -0.11456, 0.00111, 0.04022, 0.06819, 0.08709,
+             0.10500, 0.11706, 0.12593, 0.13203, 0.13561,
+             0.13673, 0.13561, 0.13204, 0.12594, 0.11706,
+             0.10501, 0.08710, 0.06819, 0.04023, 0.00111,
+            -0.11456
+        ])
+    elif thickness_label == "10%":
+        # Valores dobrados em relação a 5% (teoria linear)
+        cp_ref = np.array([
+            -0.22912, 0.00222, 0.08044, 0.13638, 0.17418,
+             0.21000, 0.23412, 0.25186, 0.26406, 0.27122,
+             0.27346, 0.27122, 0.26408, 0.25188, 0.23412,
+             0.21002, 0.17420, 0.13638, 0.08046, 0.00222,
+            -0.22912
+        ])
 
     # Read CFD airfoil data
     df = pd.read_csv(cp_file)
@@ -98,7 +108,7 @@ def compare_processed_cp_airfoil(cp_file, result_file):
     plt.gca().invert_yaxis()  # padrão em aerodinâmica
     plt.xlabel("x/c")
     plt.ylabel("Cp")
-    plt.title("Airfoil Cp comparison (processed)")
+    plt.title(f"{thickness_label} thickness airfoil Cp comparison.")
     plt.grid(True)
     plt.legend()
 
@@ -109,5 +119,6 @@ def compare_processed_cp_airfoil(cp_file, result_file):
 
 
 if __name__ == "__main__":
-    #compare_raw_cp_airfoil("job_files/solution_data/solution.csv")
-    compare_processed_cp_airfoil("job_files/solution_data/airfoil_cp.csv", result_file="job_files/post_proc_results/airfoil_cp_comparison.png")
+    compare_processed_cp_airfoil("10%", 
+                                 "job_files/slor_r1.8_t10/solution_data/airfoil_cp.csv", 
+                                 "job_files/slor_r1.8_t10/post_proc_result/t10_cp_comparison.png")

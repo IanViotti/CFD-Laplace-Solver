@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
-def plot_phi_contour(csv_file, levels=30, result_file="job_files/post_proc_results/phi_contour.png"):
+def plot_phi_contour(thickness, csv_file, levels=30, result_file="job_files/post_proc_results/phi_contour.png"):
     """
     Plot Cp contour using contourf from x,y coordinates in the CSV.
     """
@@ -52,14 +52,14 @@ def plot_phi_contour(csv_file, levels=30, result_file="job_files/post_proc_resul
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.set_title("Phi contour")
+    ax.set_title(f"{thickness} thickness airfoil Phi contour")
     ax.axis("equal")
 
     plt.savefig(result_file, dpi=500)
 
     plt.show()
 
-def plot_U_vector(csv_file, result_file="job_files/post_proc_results/velocity_vector_field.png"):
+def plot_U_vector(thickness, csv_file, result_file="job_files/post_proc_results/velocity_vector_field.png"):
     """
     Reads the solution CSV and plots the vector field (phi_x, phi_y).
 
@@ -98,7 +98,7 @@ def plot_U_vector(csv_file, result_file="job_files/post_proc_results/velocity_ve
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.set_title("Velocity vector field")
+    ax.set_title(f"{thickness} thickness airfoil velocity vector field")
     ax.axis("equal")
 
     plt.savefig(result_file, dpi=500)
@@ -106,7 +106,7 @@ def plot_U_vector(csv_file, result_file="job_files/post_proc_results/velocity_ve
     plt.show()
 
 
-def plot_cp_contour(csv_file, levels=30, result_file="job_files/post_proc_results/cp_contour.png"):
+def plot_cp_contour(thickness, csv_file, levels=30, result_file="job_files/post_proc_results/cp_contour.png"):
     """
     Plot Cp contour using contourf from x,y coordinates in the CSV.
     """
@@ -156,7 +156,7 @@ def plot_cp_contour(csv_file, levels=30, result_file="job_files/post_proc_result
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.set_title("Cp contour")
+    ax.set_title(f"{thickness} thickness airfoil Cp contour")
     ax.axis("equal")
 
     plt.savefig(result_file, dpi=500)
@@ -164,6 +164,8 @@ def plot_cp_contour(csv_file, levels=30, result_file="job_files/post_proc_result
     plt.show()
 
 if __name__ == "__main__":
-    plot_phi_contour("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/phi_contour.png")
-    plot_U_vector("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/velocity_vector_field.png")
-    plot_cp_contour("job_files/solution_data/solution.csv", result_file="job_files/post_proc_results/cp_contour.png")
+    job = "slor_r1.8_t10"
+    thickness = "10%"
+    plot_phi_contour(thickness, f"job_files/{job}/solution_data/solution.csv", result_file=f"job_files/{job}/post_proc_result/phi_contour.png")
+    plot_U_vector(thickness, f"job_files/{job}/solution_data/solution.csv", result_file=f"job_files/{job}/post_proc_result/velocity_vector_field.png")
+    plot_cp_contour(thickness, f"job_files/{job}/solution_data/solution.csv", result_file=f"job_files/{job}/post_proc_result/cp_contour.png")
