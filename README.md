@@ -1,239 +1,105 @@
-# 2D Potential Flow Solver (CFD) — Rust Implementation
+# 2D Potential Flow Solver (Laplace Equation)
 
-## Overview
-
-This project implements a 2D Computational Fluid Dynamics (CFD) solver for incompressible, irrotational flow using the **Laplace equation for velocity potential**:
-
-[
-\nabla^2 \phi = 0
-]
-
-The solver is based on the **finite difference method (FDM)** applied to a structured, non-uniform Cartesian mesh. It is designed with a modular architecture that allows different iterative schemes to be easily implemented and compared.
+A Computational Fluid Dynamics (CFD) solver written in **Rust** to solve the 2D Laplace equation for incompressible, irrotational potential flow over a biconvex airfoil. The project includes a set of iterative schemes and a **Python** post-processing pipeline for data visualization.
 
 ---
 
 ## Features
 
-* Structured Cartesian mesh with geometric stretching
-* Finite difference discretization on non-uniform grids
-* Multiple iterative solvers:
+### **Core Solver (Rust)**
+* **Governing Equation:** Solves the 2D Laplace equation in Cartesian coordinates for the velocity potential $\phi$:
+  $$\nabla^2 \phi = \frac{\partial^2 \phi}{\partial x^2} + \frac{\partial^2 \phi}{\partial y^2} = 0$$
+* **Airfoil Geometry:** Implicitly handles a biconvex airfoil profile defined by:
+  $$y = 2t x(1-x)$$
+  where $t$ is the maximum thickness.
+* **Custom Mesh Generation:** Builds a structured Cartesian grid with configurable algebraic stretching factors (`XSF`, `YSF`) to cluster nodes near the airfoil surface.
+* **Boundary Conditions:**
+    * **Far-field:** Uniform free-stream flow ($\phi = U_\infty x$).
+    * **Symmetry:** $\frac{\partial \phi}{\partial y} = 0$ outside the airfoil chord.
+    * **Solid Wall (Tangency):** Implements the small-disturbance surface boundary condition applied at $y=0$:
+      $$\frac{\partial \phi}{\partial y} = U_\infty \frac{dy}{dx}$$
+* **Data Export:** Exports structured data (Mesh, $\phi$, $u$, $v$, $C_p$, and surface $C_p$) to CSV format for post-processing.
 
-  * Jacobi
-  * Gauss-Seidel
-  * Successive Over-Relaxation (SOR)
-  * Line Gauss-Seidel (in progress / optional)
-* Residual monitoring and convergence tracking
-* Post-processing:
+### **Iterative Schemes**
+The solver implements multiple iterative schemes using an Trait-based approach in Rust:
+1.  **Point Jacobi:** Standard explicit updating.
+2.  **Point Gauss-Seidel (GS):** In-place sequential updating.
+3.  **Successive Over-Relaxation (SOR):** Gauss-Seidel modified with a relaxation factor $r$.
+4.  **Line Gauss-Seidel (LGS):** Implicit in the $y$-direction (solved via the **Thomas Algorithm** for tridiagonal systems) and explicit in the $x$-direction.
+5.  **Successive Line Over-Relaxation (SLOR):** LGS modified with a relaxation factor $r$.
 
-  * Velocity field computation
-  * Pressure coefficient (Cp)
-  * Airfoil Cp distribution
-* CSV export for visualization (Paraview, Tecplot, Python, etc.)
-
----
-
-## Governing Equations
-
-The solver computes the velocity potential ( \phi ), from which velocity is obtained:
-
-[
-u = \frac{\partial \phi}{\partial x}, \quad v = \frac{\partial \phi}{\partial y}
-]
-
-The pressure coefficient is computed using Bernoulli’s equation:
-
-[
-C_p = 1 - \frac{u^2 + v^2}{U_\infty^2}
-]
+### **Post-Processing (Python)**
+* Extracts velocity fields using central finite differences:
+  $$u = \frac{\partial \phi}{\partial x}, \quad v = \frac{\partial \phi}{\partial y}$$
+* Calculates the Pressure Coefficient ($C_p$) using the linearized Bernoulli equation.
+* Generates contour plots, vector fields, and residual history graphs.
 
 ---
 
 ## Project Structure
 
 ```text
-src/
-│
-├── main.rs                # Entry point (simulation pipeline)
-├── config.rs              # Simulation parameters
-├── mesh.rs                # Mesh generation
-├── solver_core.rs         # Core solver loop
-├── solver_utils.rs        # Post-processing and utilities
-│
-└── tm_schemes/            # Time-marching (iterative) schemes
-    ├── mod.rs
-    ├── jacobi.rs
-    ├── gauss_seidel.rs
-    ├── sor.rs
-    └── line_gauss_seidel.rs
+├── src/
+│   ├── main.rs               # Application entry point & configuration
+│   ├── solver_core.rs        # Main iteration loop & boundary conditions
+│   ├── mesh.rs               # Grid generation with stretching
+│   ├── config.rs             # Simulation parameters 
+│   ├── solver_utils.rs       # Output writers, TDMA, velocity/Cp calculations
+│   └── it_schemes/           # Implementation of Jacobi, GS, SOR, LGS, SLOR
+├── job_files/                # Output directory for mesh, solutions, and logs
+├── preproc/                  # Python scripts for mesh visualization
+└── postproc/                 # Python scripts for contour, vector, and residual plotting
 ```
 
----
+## Compilation and Execution
+1. Running the Solver (Rust)
 
-## Numerical Methods
+- To configure the simulation, edit the parameters inside the main() function in src/main.rs (e.g., changing the solver scheme or adjusting the thickness t).
 
-All iterative methods implement the same interface:
+- Run the solver in release mode:
 
-```rust
-trait TimeMarchingScheme {
-    fn step(&self, mesh: &Array2<Node>, phi_n: &mut Array2<f64>) -> f64;
-}
-```
+  - cargo run --release
 
-### Implemented Schemes
+- CSV files will be generated inside the respective job_files/<jobname>/solution_data/ directory.
 
-| Method       | Type       | Characteristics                       |
-| ------------ | ---------- | ------------------------------------- |
-| Jacobi       | Explicit   | Simple, slow convergence              |
-| Gauss-Seidel | In-place   | Faster than Jacobi                    |
-| SOR          | Relaxed GS | Accelerated convergence (ω-dependent) |
+2. Generating Plots (Python)
 
-### Key Idea
+- Ensure you have the required Python libraries installed:
 
-All methods solve:
+  - pip install numpy pandas matplotlib
 
-[
-L(\phi) = 0
-]
+- Run the post-processing scripts to generate the visualizations:
 
-through iterative correction:
+  - python postproc/plot_results.py
+  - python postproc/validation.py
+  - python postproc/compare_residuals.py
 
-[
-\phi^{n+1} = \phi^n - \frac{L(\phi^n)}{N}
-]
 
-where ( N ) is a diagonal approximation of the operator.
+## Results & Visualizations
 
----
+1. Maximum residual error per iteration for the different numerical schemes implemented.
 
-## Mesh Generation
+<img src="job_files/general/residual_comparison.png" alt="Contorno de Cp" width="500" />
 
-The mesh is:
+2. Velocity Potential (ϕ)
 
-* Structured (i, j indexing)
-* Non-uniform (geometric stretching)
-* Divided into three regions:
+<img src="job_files/slor_r1.8_t05/post_proc_result/phi_contour.png" alt="Contorno de Cp" width="500" />
 
-  * Upstream (stretched)
-  * Airfoil region (uniform)
-  * Downstream (stretched)
+3. Pressure Coefficient (Cp​) Field
 
-Stretching factors:
+<img src="job_files/slor_r1.8_t05/post_proc_result/cp_contour.png" alt="Contorno de Cp" width="500" />
 
-* `XSF` → controls streamwise spacing
-* `YSF` → controls normal clustering near the airfoil
+4. Velocity Vector Field
+
+<img src="job_files/slor_r1.8_t05/post_proc_result/velocity_vector_field.png" alt="Contorno de Cp" width="500" />
+
+Velocity vectors near the airfoil surface.
+5. Surface Cp​ Validation
+
+<img src="job_files/slor_r1.8_t05/post_proc_result/t05_cp_comparison.png" alt="Contorno de Cp" width="500" />
 
 ---
-
-## Boundary Conditions
-
-* Far-field:
-  [
-  \phi = U_\infty x
-  ]
-* Symmetry (outside airfoil):
-  [
-  \frac{\partial \phi}{\partial y} = 0
-  ]
-* Airfoil surface:
-
-  * Imposed normal velocity condition using airfoil thickness model
-
----
-
-## How to Run
-
-1. Configure simulation parameters in `main.rs`:
-
-```rust
-let config = Config {
-    IMAX: 41,
-    JMAX: 12,
-    ILE: 10,
-    ITE: 30,
-    XSF: 1.25,
-    YSF: 1.25,
-    u_inf: 1.0,
-    t: 0.05,
-    n_max: 1000,
-};
-```
-
-2. Choose the iterative scheme:
-
-```rust
-let tm_scheme = SOR { omega: 1.8 };
-```
-
-3. Run the solver:
-
-```bash
-cargo run --release
-```
-
----
-
-## Output Files
-
-Generated in `job_files/`:
-
-### Mesh
-
-* `mesh.csv`
-
-### Solution
-
-* `solution.csv` (x, y, φ, u, v, Cp)
-
-### Field Matrices
-
-* `phi_matrix.csv`
-* `cp_matrix.csv`
-* `u_matrix.csv`
-* `v_matrix.csv`
-
-### Airfoil Data
-
-* `airfoil_cp.csv`
-
-### Convergence
-
-* `residual_history.csv`
-
----
-
-## Key Observations
-
-* Jacobi converges slowly due to purely explicit updates
-* Gauss-Seidel improves convergence via in-place updates
-* SOR significantly accelerates convergence with optimal ω
-* Mesh stretching strongly influences convergence behavior
-
----
-
-## Future Work
-
-* Implement Line Gauss-Seidel (tridiagonal solver per line)
-* Add optimal relaxation parameter estimation
-* Introduce multigrid acceleration
-* Extend to compressible or viscous flows
-
----
-
-## Requirements
-
-* Rust (latest stable)
-* Crates:
-
-  * `ndarray`
-
----
-
-## Author
-
-CFD solver developed as part of an academic project in Aeronautical Engineering.
-
----
-
 ## License
 
-This project is for educational purposes.
+This educational purpose code was developed for a project in CC-297 (Fundamentals of Computational Fluid Dynamics) class at post-graduate ITA.
+
