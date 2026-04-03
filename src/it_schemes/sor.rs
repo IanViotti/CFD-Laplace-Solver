@@ -76,9 +76,6 @@ impl IterativeScheme for SOR {
 
         let (imax, jmax) = mesh.dim();
 
-        let mut max_residual = 0.0;
-
-
         for i in 1..imax-1 {
             for j in 1..jmax-1 {
 
@@ -95,13 +92,11 @@ impl IterativeScheme for SOR {
                 );
 
                 // Compute dx dy
-                let dx_e = mesh[[i + 1, j]].x - mesh[[i, j]].x;
-                let dx_w = mesh[[i, j]].x - mesh[[i - 1, j]].x;
-                let dy_n = mesh[[i, j + 1]].y - mesh[[i, j]].y;
-                let dy_s = mesh[[i, j]].y - mesh[[i, j - 1]].y;
+                let dx_avg = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
+                let dy_avg = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
 
-                let n_x = -2.0 / (dx_e * dx_w);
-                let n_y = -2.0 / (dy_n * dy_s);
+                let n_x = -2.0 / dx_avg.powi(2);
+                let n_y = -2.0 / dy_avg.powi(2);
                 let n = n_x + n_y;
 
                 // Compute correction
@@ -110,12 +105,32 @@ impl IterativeScheme for SOR {
                 // In-place update
                 phi_n[[i, j]] += C_ij;
 
-                // Track maximum residual
-                if L_phi_n_ij.abs() > max_residual {
-                    max_residual = L_phi_n_ij.abs();
+                }
+            }
+
+        let mut max_residual = 0.0;
+
+        for i in 1..imax-1 {
+            for j in 1..jmax-1 {
+                // Agora o campo todo já está no nível n+1, garantindo 
+                // uma medição justa (apples-to-apples) com o Jacobi e SLOR.
+                let r_ij = calc_L_phi_ij(
+                    mesh[[i, j]].x, mesh[[i, j]].y,
+                    mesh[[i+1, j]].x, mesh[[i-1, j]].x,
+                    mesh[[i, j+1]].y, mesh[[i, j-1]].y,
+                    phi_n[[i, j]],
+                    phi_n[[i+1, j]],
+                    phi_n[[i-1, j]],
+                    phi_n[[i, j-1]],
+                    phi_n[[i, j+1]]
+                ).abs();
+
+                if r_ij > max_residual {
+                    max_residual = r_ij;
                 }
             }
         }
+
 
         max_residual
     }

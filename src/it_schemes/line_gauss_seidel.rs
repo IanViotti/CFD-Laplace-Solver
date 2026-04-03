@@ -39,7 +39,6 @@ impl IterativeScheme for LineGaussSeidel {
     ) -> f64 {
 
         let (imax, jmax) = mesh.dim();
-        let mut max_residual = 0.0;
 
         // Number of interior points in y (size of tridiagonal system)
         let n = jmax - 2;
@@ -100,15 +99,10 @@ impl IterativeScheme for LineGaussSeidel {
             for j in 1..jmax-1 {
                 let jj = j - 1;
                 phi_n[[i, j]] += C[jj];
-
-                // Track maximum correction magnitude
-                let residual = C[jj].abs();
-                if residual > max_residual {
-                    max_residual = residual;
-                }
             }
         }
 
+        let mut max_residual = 0.0;
         // ----- Final residual evaluation over entire domain -----
         for i in 1..imax-1 {
             for j in 1..jmax-1 {

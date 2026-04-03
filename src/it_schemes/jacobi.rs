@@ -79,13 +79,11 @@ impl IterativeScheme for Jacobi {
                 );
 
                 // Compute dx dy
-                let dx_e = mesh[[i + 1, j]].x - mesh[[i, j]].x;     // Δx à direita (East)
-                let dx_w = mesh[[i, j]].x - mesh[[i - 1, j]].x;     // Δx à esquerda (West)
-                let dy_n = mesh[[i, j + 1]].y - mesh[[i, j]].y;     // Δy acima (North)
-                let dy_s = mesh[[i, j]].y - mesh[[i, j - 1]].y;     // Δy abaixo (South)
+                let dx_avg = (mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0;
+                let dy_avg = (mesh[[i, j+1]].y - mesh[[i, j-1]].y) / 2.0;
 
-                let n_x = -2.0 / (dx_e * dx_w);
-                let n_y = -2.0 / (dy_n * dy_s);
+                let n_x = -2.0 / dx_avg.powi(2);
+                let n_y = -2.0 / dy_avg.powi(2);
                 let n = n_x + n_y;
 
                 // Compute correction

@@ -57,7 +57,6 @@ impl IterativeScheme for SLOR {
 
         let r = self.r;
         let (imax, jmax) = mesh.dim();
-        let mut max_residual = 0.0;
 
         // Number of interior points in y (size of the tridiagonal system)
         let n = jmax - 2;
@@ -76,6 +75,19 @@ impl IterativeScheme for SLOR {
 
             // ----- Assemble linear system for this line -----
             for j in 1..jmax-1 {
+
+                // ===== Full residual Lφ evaluated at iteration n =====
+                let L_phi_n_ij = calc_L_phi_ij(
+                    mesh[[i, j]].x, mesh[[i, j]].y,
+                    mesh[[i+1, j]].x, mesh[[i-1, j]].x,
+                    mesh[[i, j+1]].y, mesh[[i, j-1]].y,
+                    phi_n[[i, j]],
+                    phi_n[[i+1, j]],
+                    phi_n[[i-1, j]],
+                    phi_n[[i, j-1]],
+                    phi_n[[i, j+1]]
+                );
+
                 let jj = j - 1;
 
                 // ===== Implicit operator in y applied to C =====
@@ -97,24 +109,13 @@ impl IterativeScheme for SLOR {
                 b[jj] = -(2.0 / r) /  ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2)
                     - a[jj] - c[jj];
 
-                // ===== Full residual Lφ evaluated at iteration n =====
-                let L_phi_n_ij = calc_L_phi_ij(
-                    mesh[[i, j]].x, mesh[[i, j]].y,
-                    mesh[[i+1, j]].x, mesh[[i-1, j]].x,
-                    mesh[[i, j+1]].y, mesh[[i, j-1]].y,
-                    phi_n[[i, j]],
-                    phi_n[[i+1, j]],
-                    phi_n[[i-1, j]],
-                    phi_n[[i, j-1]],
-                    phi_n[[i, j+1]]
-                );
-
                 // ===== Right-hand side =====
                 // Includes:
                 // 1) Complete residual
                 // 2) Gauss-Seidel contribution from previous line (i-1)
-                d[jj] = -L_phi_n_ij
+                d[jj] = -L_phi_n_ij;
                         //- C[jj] / ((mesh[[i+1, j]].x - mesh[[i-1, j]].x) / 2.0).powi(2);
+
             }
 
             // ===== Solve tridiagonal system =====
@@ -124,15 +125,11 @@ impl IterativeScheme for SLOR {
             for j in 1..jmax-1 {
                 let jj = j - 1;
                 phi_n[[i, j]] += C[jj];
-
-                // Track maximum correction
-                let residual = C[jj].abs();
-                if residual > max_residual {
-                    max_residual = residual;
-                }
+                
             }
         }
-
+        
+        let mut max_residual = 0.0;
         // ===== Final residual evaluation over domain =====
         for i in 1..imax-1 {
             for j in 1..jmax-1 {

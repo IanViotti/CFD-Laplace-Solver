@@ -47,10 +47,11 @@ fn main() {
         u_inf: 1.0, // Freestream velocity (U∞)
         t: 0.10,   // Airfoil thickness parameter
         n_max: 5000, // Maximum number of solver iterations
+        conv_criterion: 0.0, // Convergence criterion for residual
     };
 
     // Job name for output organization
-    let jobname = "slor_r1.8_t10";
+    let jobname = "gs_t05";
 
     // Create necessary directories for output
     solver_utils::init_solver_directory(jobname);
@@ -58,7 +59,7 @@ fn main() {
     // ===============================
     // Time-Marching Scheme Selection
     // ===============================
-    let it_scheme = SLOR { r: 1.8 }; // Successive Line Over-Relaxation with r = 1.5
+    let it_scheme = GaussSeidel; // Gauss-Seidel iteration
     // Alternative schemes:
 
     let mesh_file_name = &format!("job_files/{}/mesh/mesh.csv", jobname);

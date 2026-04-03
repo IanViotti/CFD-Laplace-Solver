@@ -51,4 +51,5 @@ pub struct Config {
     pub u_inf: f64,
     pub t: f64,
     pub n_max: usize,
+    pub conv_criterion: f64,
 }

@@ -60,6 +60,14 @@ pub fn solve(
                 iter, n_max, max_residual
             );
         }
+
+        if max_residual < config.conv_criterion {
+            println!(
+                "Convergence achieved at iteration {} with residual {:.6e}",
+                iter, max_residual
+            );
+            break;
+        }
     }
 
     phi_n
